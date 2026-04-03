@@ -2,335 +2,380 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Flappy Jasper</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Flappy Kids</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #87CEEB; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: 'Arial', sans-serif; overflow: hidden; }
-  canvas { border: 3px solid #FFD700; border-radius: 8px; display: block; }
-  #ui { color: #FFD700; text-align: center; margin-bottom: 10px; font-size: 14px; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#000; }
+  canvas { display:block; width:100vw; height:100vh; }
 </style>
 </head>
 <body>
-<div id="ui">TAP / CLICK / SPACEBAR to flap</div>
 <canvas id="c"></canvas>
 <script>
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
+let W, H;
+function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+resize();
+window.addEventListener('resize', resize);
 
-// Responsive sizing
-const W = canvas.width = Math.min(400, window.innerWidth - 10);
-const H = canvas.height = Math.min(600, window.innerHeight - 60);
-ctx.fillStyle = '#87CEEB';
-ctx.fillRect(0, 0, W, H);
+const FLOOR_H = 40;
 
-// Load Jasper photo
-const jasperImg = new Image();
-jasperImg.src = 'data:image/jpeg;base64,'; // placeholder — will use drawn fallback
+// Draw Jasper: 6yo boy, round face, short hair, big smile
+function drawJasper(ctx, r, flapFrame) {
+  // Face
+  ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2);
+  ctx.fillStyle='#FDDBB4'; ctx.fill();
+  ctx.strokeStyle='#e0a87c'; ctx.lineWidth=r*0.06; ctx.stroke();
+  // Hair - short bowl cut
+  ctx.fillStyle='#3a2008';
+  ctx.beginPath(); ctx.arc(0,-r*0.1,r*0.92,Math.PI,Math.PI*2); ctx.fill();
+  ctx.fillRect(-r*0.92,-r*0.1,r*1.84,r*0.18);
+  // Eyes - big round
+  var es=r*0.18;
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.arc(-r*0.3,-r*0.1,es,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(r*0.3,-r*0.1,es,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#3a2008';
+  ctx.beginPath(); ctx.arc(-r*0.28,-r*0.09,es*0.6,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(r*0.32,-r*0.09,es*0.6,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.arc(-r*0.22,-r*0.14,es*0.22,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(r*0.38,-r*0.14,es*0.22,0,Math.PI*2); ctx.fill();
+  // Nose
+  ctx.fillStyle='#e0907c';
+  ctx.beginPath(); ctx.arc(0,r*0.08,r*0.07,0,Math.PI*2); ctx.fill();
+  // Big smile
+  ctx.strokeStyle='#b05030'; ctx.lineWidth=r*0.07;
+  ctx.beginPath(); ctx.arc(0,r*0.05,r*0.28,0.2,Math.PI-0.2); ctx.stroke();
+  // Chubby cheeks
+  ctx.fillStyle='rgba(255,120,100,0.25)';
+  ctx.beginPath(); ctx.ellipse(-r*0.6,r*0.12,r*0.2,r*0.12,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(r*0.6,r*0.12,r*0.2,r*0.12,0,0,Math.PI*2); ctx.fill();
+  // Shirt collar
+  ctx.fillStyle='#FFD700';
+  ctx.fillRect(-r*0.5,r*0.72,r*1.0,r*0.3);
+  // Peace sign on flap
+  if (flapFrame>0) {
+    ctx.strokeStyle='#e6b800'; ctx.lineWidth=r*0.1;
+    ctx.beginPath(); ctx.moveTo(r,0); ctx.lineTo(r+r*0.5,-r*0.35); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(r,0); ctx.lineTo(r+r*0.5,r*0.18); ctx.stroke();
+  }
+}
 
-// Game state
-let state = 'start'; // start, playing, dead
-let bird, pipes, score, hiScore, frame, particles;
+// Draw Chloe: 12yo girl, long hair, glasses
+function drawChloe(ctx, r, flapFrame) {
+  // Long hair behind
+  ctx.fillStyle='#5c2d0a';
+  ctx.beginPath(); ctx.ellipse(0,r*0.3,r*1.0,r*1.1,0,0,Math.PI*2); ctx.fill();
+  // Face
+  ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2);
+  ctx.fillStyle='#FDDBB4'; ctx.fill();
+  ctx.strokeStyle='#e0a87c'; ctx.lineWidth=r*0.05; ctx.stroke();
+  // Hair top
+  ctx.fillStyle='#5c2d0a';
+  ctx.beginPath(); ctx.arc(0,-r*0.05,r*0.95,Math.PI,Math.PI*2); ctx.fill();
+  // Side hair strands
+  ctx.beginPath(); ctx.ellipse(-r*0.95,r*0.2,r*0.18,r*0.55,0.15,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(r*0.95,r*0.2,r*0.18,r*0.55,-0.15,0,Math.PI*2); ctx.fill();
+  // Eyes
+  var es=r*0.16;
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.arc(-r*0.3,-r*0.1,es,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(r*0.3,-r*0.1,es,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#3a6030';
+  ctx.beginPath(); ctx.arc(-r*0.28,-r*0.09,es*0.6,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(r*0.32,-r*0.09,es*0.6,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.arc(-r*0.22,-r*0.14,es*0.22,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(r*0.38,-r*0.14,es*0.22,0,Math.PI*2); ctx.fill();
+  // Glasses
+  ctx.strokeStyle='#333'; ctx.lineWidth=r*0.07;
+  ctx.strokeRect(-r*0.55,-r*0.26,r*0.45,r*0.3);
+  ctx.strokeRect(r*0.1,-r*0.26,r*0.45,r*0.3);
+  ctx.beginPath(); ctx.moveTo(-r*0.1,-r*0.12); ctx.lineTo(r*0.1,-r*0.12); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-r*0.55,-r*0.12); ctx.lineTo(-r*0.7,-r*0.07); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(r*0.55,-r*0.12); ctx.lineTo(r*0.7,-r*0.07); ctx.stroke();
+  // Nose
+  ctx.fillStyle='#e0907c';
+  ctx.beginPath(); ctx.arc(0,r*0.08,r*0.06,0,Math.PI*2); ctx.fill();
+  // Gentle smile
+  ctx.strokeStyle='#b05030'; ctx.lineWidth=r*0.06;
+  ctx.beginPath(); ctx.arc(0,r*0.1,r*0.28,0.2,Math.PI-0.2); ctx.stroke();
+  // Shirt
+  ctx.fillStyle='#FF69B4';
+  ctx.fillRect(-r*0.5,r*0.72,r*1.0,r*0.3);
+  if (flapFrame>0) {
+    ctx.strokeStyle='#FF1493'; ctx.lineWidth=r*0.09;
+    ctx.beginPath(); ctx.moveTo(r,0); ctx.lineTo(r+r*0.5,-r*0.35); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(r,0); ctx.lineTo(r+r*0.5,r*0.18); ctx.stroke();
+  }
+}
 
-const PIPE_W = 52;
-const PIPE_GAP = H * 0.28;
-const PIPE_SPEED = 2.2;
-const GRAVITY = 0.38;
-const FLAP = -7.5;
-const BIRD_R = 28;
+// Draw Xavier: 14yo boy, longer hair, glasses, smirk
+function drawXavier(ctx, r, flapFrame) {
+  // Longer hair behind
+  ctx.fillStyle='#1a1a1a';
+  ctx.beginPath(); ctx.ellipse(0,r*0.2,r*1.05,r*1.0,0,0,Math.PI*2); ctx.fill();
+  // Chubby face
+  ctx.beginPath(); ctx.ellipse(0,r*0.05,r,r*1.05,0,0,Math.PI*2);
+  ctx.fillStyle='#F5CBA7'; ctx.fill();
+  ctx.strokeStyle='#E59866'; ctx.lineWidth=r*0.05; ctx.stroke();
+  // Hair top with side sweep
+  ctx.fillStyle='#1a1a1a';
+  ctx.beginPath();
+  ctx.moveTo(-r*0.95,-r*0.2);
+  ctx.quadraticCurveTo(-r*0.5,-r*1.05,r*0.3,-r*0.92);
+  ctx.quadraticCurveTo(r*0.7,-r*0.82,r*0.95,-r*0.25);
+  ctx.quadraticCurveTo(r*0.5,-r*0.55,-r*0.2,-r*0.72);
+  ctx.quadraticCurveTo(-r*0.7,-r*0.78,-r*0.95,-r*0.2);
+  ctx.fill();
+  // Eyes
+  var es=r*0.16;
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.arc(-r*0.28,-r*0.12,es,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(r*0.28,-r*0.12,es,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#1a3a5c';
+  ctx.beginPath(); ctx.arc(-r*0.26,-r*0.11,es*0.6,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(r*0.3,-r*0.11,es*0.6,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.arc(-r*0.2,-r*0.16,es*0.22,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(r*0.36,-r*0.16,es*0.22,0,Math.PI*2); ctx.fill();
+  // Glasses
+  ctx.strokeStyle='#222'; ctx.lineWidth=r*0.07;
+  ctx.strokeRect(-r*0.54,-r*0.28,r*0.46,r*0.3);
+  ctx.strokeRect(r*0.08,-r*0.28,r*0.46,r*0.3);
+  ctx.beginPath(); ctx.moveTo(-r*0.08,-r*0.14); ctx.lineTo(r*0.08,-r*0.14); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-r*0.54,-r*0.14); ctx.lineTo(-r*0.7,-r*0.09); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(r*0.54,-r*0.14); ctx.lineTo(r*0.7,-r*0.09); ctx.stroke();
+  // Nose
+  ctx.fillStyle='#d4956a';
+  ctx.beginPath(); ctx.arc(0,r*0.1,r*0.07,0,Math.PI*2); ctx.fill();
+  // Smirk
+  ctx.strokeStyle='#8e5a3a'; ctx.lineWidth=r*0.06;
+  ctx.beginPath(); ctx.arc(r*0.08,r*0.15,r*0.22,0.3,Math.PI-0.5); ctx.stroke();
+  // Chubby cheeks blush
+  ctx.fillStyle='rgba(255,150,120,0.2)';
+  ctx.beginPath(); ctx.ellipse(-r*0.62,r*0.12,r*0.2,r*0.12,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(r*0.62,r*0.12,r*0.2,r*0.12,0,0,Math.PI*2); ctx.fill();
+  // Shirt
+  ctx.fillStyle='#4169E1';
+  ctx.fillRect(-r*0.5,r*0.72,r*1.0,r*0.3);
+  if (flapFrame>0) {
+    ctx.strokeStyle='#FFB347'; ctx.lineWidth=r*0.09;
+    ctx.beginPath(); ctx.moveTo(r,0); ctx.lineTo(r+r*0.5,-r*0.35); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(r,0); ctx.lineTo(r+r*0.5,r*0.18); ctx.stroke();
+  }
+}
+
+const CHARS = [
+  { name:'Jasper', r:28, draw: drawJasper },
+  { name:'Chloe',  r:31, draw: drawChloe  },
+  { name:'Xavier', r:33, draw: drawXavier }
+];
+
+var selectedChar=0, state='select';
+var bird, pipes, score, hiScore=0, frame=0, particles=[];
+
+const PIPE_W=55, PIPE_SPEED=1.5, GRAVITY=0.38, FLAP=-7.5;
+
+function getPipeGap() { return H*0.28; }
+function getBirdR() { return CHARS[selectedChar].r; }
 
 function init() {
-  bird = { x: W * 0.25, y: H / 2, vy: 0, angle: 0, flapping: false, flapFrame: 0 };
-  pipes = [];
-  score = 0;
-  frame = 0;
-  particles = [];
-  if (!hiScore) hiScore = 0;
+  bird={x:W*0.25,y:H/2,vy:0,angle:0,flapFrame:0};
+  pipes=[]; score=0; frame=0; particles=[];
 }
 
 function spawnPipe() {
-  const minTop = H * 0.15;
-  const maxTop = H * 0.65;
-  const top = minTop + Math.random() * (maxTop - minTop);
-  pipes.push({ x: W, top, scored: false });
+  var gap=getPipeGap(), minTop=H*0.12, maxTop=H*0.65-gap*0.3;
+  pipes.push({x:W, top:minTop+Math.random()*(maxTop-minTop), scored:false});
 }
 
 function flap() {
-  if (state === 'start') { state = 'playing'; init(); bird.vy = FLAP; return; }
-  if (state === 'dead') { state = 'start'; return; }
-  bird.vy = FLAP;
-  bird.flapFrame = 8;
-  // particles
-  for (let i = 0; i < 6; i++) {
-    particles.push({ x: bird.x, y: bird.y + BIRD_R, vx: (Math.random()-0.5)*3, vy: Math.random()*2+1, life: 20, color: '#FFD700' });
+  if (state==='dead'){state='select';return;}
+  if (state!=='playing') return;
+  bird.vy=FLAP; bird.flapFrame=10;
+  for(var i=0;i<6;i++) particles.push({x:bird.x,y:bird.y+getBirdR(),vx:(Math.random()-0.5)*3,vy:Math.random()*2+1,life:20});
+}
+
+canvas.addEventListener('click',function(e){
+  if(state==='select') handleSelectClick(e.clientX,e.clientY); else flap();
+});
+canvas.addEventListener('touchstart',function(e){
+  e.preventDefault();
+  var t=e.touches[0];
+  if(state==='select') handleSelectClick(t.clientX,t.clientY); else flap();
+},{passive:false});
+document.addEventListener('keydown',function(e){if(e.code==='Space'){e.preventDefault();flap();}});
+
+function handleSelectClick(mx,my) {
+  var rect=canvas.getBoundingClientRect();
+  mx=(mx-rect.left)*(W/rect.width);
+  my=(my-rect.top)*(H/rect.height);
+  var cardW=W*0.28,cardH=H*0.38,totalW=CHARS.length*cardW+(CHARS.length-1)*W*0.04;
+  var startX=(W-totalW)/2,cardY=H*0.38;
+  for(var i=0;i<CHARS.length;i++){
+    var cx=startX+i*(cardW+W*0.04);
+    if(mx>=cx&&mx<=cx+cardW&&my>=cardY&&my<=cardY+cardH){
+      selectedChar=i; state='playing'; init(); bird.vy=FLAP;
+    }
   }
 }
 
-document.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); flap(); } });
-canvas.addEventListener('click', flap);
-canvas.addEventListener('touchstart', e => { e.preventDefault(); flap(); }, { passive: false });
-
-// Draw sky gradient
 function drawBg() {
-  const grad = ctx.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, '#87CEEB');
-  grad.addColorStop(0.7, '#E0F4FF');
-  grad.addColorStop(1, '#90EE90');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
-
-  // Ground
-  ctx.fillStyle = '#5D8A3C';
-  ctx.fillRect(0, H - 30, W, 30);
-  ctx.fillStyle = '#4a7030';
-  ctx.fillRect(0, H - 30, W, 6);
-
-  // Clouds
-  ctx.fillStyle = 'rgba(255,255,255,0.8)';
-  drawCloud(W * 0.2 - (frame * 0.3) % W, H * 0.12, 40);
-  drawCloud(W * 0.6 - (frame * 0.2) % W, H * 0.08, 30);
-  drawCloud(W * 0.85 - (frame * 0.25) % W, H * 0.2, 35);
+  var grad=ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'#87CEEB');
+  grad.addColorStop(0.7,'#E0F4FF');
+  grad.addColorStop(1,'#c8f0c8');
+  ctx.fillStyle=grad; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='rgba(255,255,255,0.85)';
+  drawCloud((W*0.15-frame*0.4)%(W+120)-60,H*0.12,45);
+  drawCloud((W*0.5-frame*0.25+W)%(W+120)-60,H*0.08,32);
+  drawCloud((W*0.8-frame*0.35+W*0.5)%(W+120)-60,H*0.2,38);
+  drawCloud((W*0.35-frame*0.2+W*0.7)%(W+120)-60,H*0.15,28);
 }
-
-function drawCloud(x, y, r) {
+function drawCloud(x,y,r){
   ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.arc(x + r * 0.8, y - r * 0.3, r * 0.7, 0, Math.PI * 2);
-  ctx.arc(x + r * 1.5, y, r * 0.8, 0, Math.PI * 2);
+  ctx.arc(x,y,r,0,Math.PI*2);
+  ctx.arc(x+r*0.8,y-r*0.3,r*0.7,0,Math.PI*2);
+  ctx.arc(x+r*1.5,y,r*0.8,0,Math.PI*2);
   ctx.fill();
 }
 
-function drawPipe(x, top) {
-  const bot = top + PIPE_GAP;
-  const capH = 20, capW = PIPE_W + 10;
-
-  // Top pipe
-  const g1 = ctx.createLinearGradient(x, 0, x + PIPE_W, 0);
-  g1.addColorStop(0, '#2ecc40'); g1.addColorStop(0.5, '#27ae60'); g1.addColorStop(1, '#1a7a30');
-  ctx.fillStyle = g1;
-  ctx.fillRect(x, 0, PIPE_W, top);
-  // cap
-  ctx.fillStyle = '#27ae60';
-  ctx.fillRect(x - 5, top - capH, capW, capH);
-  ctx.strokeStyle = '#1a5c20'; ctx.lineWidth = 2;
-  ctx.strokeRect(x - 5, top - capH, capW, capH);
-
-  // Bottom pipe
-  const g2 = ctx.createLinearGradient(x, 0, x + PIPE_W, 0);
-  g2.addColorStop(0, '#2ecc40'); g2.addColorStop(0.5, '#27ae60'); g2.addColorStop(1, '#1a7a30');
-  ctx.fillStyle = g2;
-  ctx.fillRect(x, bot, PIPE_W, H - bot);
-  ctx.fillStyle = '#27ae60';
-  ctx.fillRect(x - 5, bot, capW, capH);
-  ctx.strokeStyle = '#1a5c20'; ctx.lineWidth = 2;
-  ctx.strokeRect(x - 5, bot, capW, capH);
+function drawFloor(){
+  ctx.fillStyle='#8B4513'; ctx.fillRect(0,H-FLOOR_H,W,FLOOR_H);
+  ctx.fillStyle='#6B3410'; ctx.fillRect(0,H-FLOOR_H,W,6);
 }
 
-// Draw Jasper as circle with photo — fallback to drawn character
-const img = new Image();
-let imgLoaded = false;
-// We'll embed a tiny canvas drawing since no real URL available
+function drawPipe(x,top){
+  var gap=getPipeGap(),bot=top+gap,capH=22,capW=PIPE_W+12;
+  var g=ctx.createLinearGradient(x,0,x+PIPE_W,0);
+  g.addColorStop(0,'#4caf50'); g.addColorStop(0.5,'#2e7d32'); g.addColorStop(1,'#1b5e20');
+  ctx.fillStyle=g;
+  ctx.fillRect(x,0,PIPE_W,top); ctx.fillRect(x,bot,PIPE_W,H-bot);
+  ctx.fillStyle='#388e3c';
+  ctx.fillRect(x-6,top-capH,capW,capH); ctx.fillRect(x-6,bot,capW,capH);
+  ctx.strokeStyle='#1b5e20'; ctx.lineWidth=2;
+  ctx.strokeRect(x-6,top-capH,capW,capH); ctx.strokeRect(x-6,bot,capW,capH);
+}
 
-function drawBird(x, y, angle) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(angle);
+function drawSelectScreen(){
+  ctx.textAlign='center';
+  // Title in dark green
+  ctx.font='bold '+Math.min(W*0.13,72)+'px Arial';
+  ctx.fillStyle='#1a5c1a';
+  ctx.shadowColor='rgba(0,0,0,0.3)'; ctx.shadowBlur=6;
+  ctx.fillText('FLAPPY KIDS',W/2,H*0.16);
+  ctx.shadowBlur=0;
+  // Subtitle in green
+  ctx.fillStyle='#2e7d32';
+  ctx.font=Math.min(W*0.055,28)+'px Arial';
+  ctx.fillText('Click on your character',W/2,H*0.27);
 
-  // Shadow
-  ctx.beginPath();
-  ctx.ellipse(0, BIRD_R + 4, BIRD_R * 0.8, 6, 0, 0, Math.PI * 2);
-  ctx.fillStyle = 'rgba(0,0,0,0.15)';
-  ctx.fill();
-
-  // Body circle (yellow like Jasper's shirt)
-  ctx.beginPath();
-  ctx.arc(0, 0, BIRD_R, 0, Math.PI * 2);
-  ctx.fillStyle = '#FFD700';
-  ctx.fill();
-  ctx.strokeStyle = '#e6b800';
-  ctx.lineWidth = 3;
-  ctx.stroke();
-
-  // Face
-  // Eyes
-  ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.arc(-8, -6, 8, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(8, -6, 8, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#222';
-  ctx.beginPath(); ctx.arc(-7, -5, 4, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(9, -5, 4, 0, Math.PI * 2); ctx.fill();
-  // Shine
-  ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.arc(-5, -7, 2, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(11, -7, 2, 0, Math.PI * 2); ctx.fill();
-
-  // Smile
-  ctx.strokeStyle = '#333';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(0, 2, 10, 0.2, Math.PI - 0.2);
-  ctx.stroke();
-
-  // Hair (black, bowl cut like Jasper)
-  ctx.fillStyle = '#222';
-  ctx.beginPath();
-  ctx.arc(0, -BIRD_R * 0.2, BIRD_R * 0.85, Math.PI, Math.PI * 2);
-  ctx.fill();
-
-  // Shirt stripe (Minion-style)
-  ctx.fillStyle = '#333';
-  ctx.fillRect(-BIRD_R + 5, 10, (BIRD_R - 5) * 2, 5);
-
-  // Peace sign hand
-  if (bird.flapFrame > 0) {
-    ctx.strokeStyle = '#FFB347';
-    ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(BIRD_R, 0); ctx.lineTo(BIRD_R + 14, -10); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(BIRD_R, 0); ctx.lineTo(BIRD_R + 14, 5); ctx.stroke();
+  var cardW=W*0.28,cardH=H*0.38,totalW=CHARS.length*cardW+(CHARS.length-1)*W*0.04;
+  var startX=(W-totalW)/2,cardY=H*0.38;
+  for(var i=0;i<CHARS.length;i++){
+    var c=CHARS[i],cx=startX+i*(cardW+W*0.04);
+    ctx.fillStyle='rgba(255,255,255,1)';
+    ctx.strokeStyle='rgba(200,200,200,0.8)';
+    ctx.lineWidth=2;
+    ctx.beginPath(); ctx.roundRect(cx,cardY,cardW,cardH,14); ctx.fill(); ctx.stroke();
+    ctx.save(); ctx.translate(cx+cardW/2,cardY+cardH*0.42);
+    ctx.beginPath(); ctx.arc(0,0,c.r,0,Math.PI*2); ctx.clip();
+    c.draw(ctx,c.r,0);
+    ctx.restore();
+    ctx.fillStyle='#1a5c1a';
+    ctx.font='bold '+Math.min(W*0.05,24)+'px Arial';
+    ctx.textAlign='center';
+    ctx.fillText(c.name,cx+cardW/2,cardY+cardH*0.88);
   }
-
-  ctx.restore();
+  // Footer
+  ctx.fillStyle='#2e7d32';
+  ctx.font=Math.min(W*0.038,18)+'px Arial';
+  ctx.textAlign='center';
+  ctx.fillText('Made with \u2665 by Daddy Tay  \u00b7  Apr 2026', W/2, H*0.95);
 }
 
-function drawParticles() {
-  particles.forEach(p => {
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-    ctx.fillStyle = p.color;
-    ctx.globalAlpha = p.life / 20;
-    ctx.fill();
-    ctx.globalAlpha = 1;
-  });
+function drawScore(){
+  ctx.fillStyle='#fff'; ctx.strokeStyle='#000'; ctx.lineWidth=4;
+  ctx.font='bold '+Math.min(W*0.12,80)+'px Arial'; ctx.textAlign='center';
+  ctx.strokeText(score,W/2,H*0.14); ctx.fillText(score,W/2,H*0.14);
 }
 
-function drawScore() {
-  ctx.fillStyle = '#fff';
-  ctx.strokeStyle = '#333';
-  ctx.lineWidth = 4;
-  ctx.font = `bold ${W * 0.12}px Arial`;
-  ctx.textAlign = 'center';
-  ctx.strokeText(score, W / 2, H * 0.15);
-  ctx.fillText(score, W / 2, H * 0.15);
+function drawDead(){
+  ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#FF4444'; ctx.font='bold '+Math.min(W*0.1,60)+'px Arial'; ctx.textAlign='center';
+  ctx.shadowColor='#ff0000'; ctx.shadowBlur=10;
+  ctx.fillText('GAME OVER',W/2,H*0.35); ctx.shadowBlur=0;
+  ctx.fillStyle='#FFD700'; ctx.font='bold '+Math.min(W*0.07,44)+'px Arial';
+  ctx.fillText('Score: '+score,W/2,H*0.47);
+  ctx.fillStyle='#fff'; ctx.font=Math.min(W*0.055,32)+'px Arial';
+  ctx.fillText('Best: '+hiScore,W/2,H*0.57);
+  var btnW=W*0.55,btnH=H*0.075,btnX=W/2-W*0.275,btnY=H*0.66;
+  ctx.fillStyle='#FFD700';
+  ctx.beginPath(); ctx.roundRect(btnX,btnY,btnW,btnH,14); ctx.fill();
+  ctx.fillStyle='#333'; ctx.font='bold '+Math.min(W*0.05,28)+'px Arial';
+  ctx.fillText('Tap to Restart',W/2,btnY+btnH*0.68);
 }
 
-function drawStart() {
-  ctx.fillStyle = 'rgba(0,0,0,0.45)';
-  ctx.fillRect(0, 0, W, H);
-
-  ctx.fillStyle = '#FFD700';
-  ctx.font = `bold ${W * 0.11}px Arial`;
-  ctx.textAlign = 'center';
-  ctx.shadowColor = '#e6b800';
-  ctx.shadowBlur = 15;
-  ctx.fillText('FLAPPY', W / 2, H * 0.35);
-  ctx.fillText('JASPER', W / 2, H * 0.47);
-  ctx.shadowBlur = 0;
-
-  ctx.fillStyle = '#fff';
-  ctx.font = `${W * 0.055}px Arial`;
-  ctx.fillText('Tap to Start!', W / 2, H * 0.62);
-
-  // draw bird preview
-  drawBird(W / 2, H * 0.25, 0);
-}
-
-function drawDead() {
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillRect(0, 0, W, H);
-
-  ctx.fillStyle = '#FF4444';
-  ctx.font = `bold ${W * 0.1}px Arial`;
-  ctx.textAlign = 'center';
-  ctx.shadowColor = '#ff0000';
-  ctx.shadowBlur = 10;
-  ctx.fillText('GAME OVER', W / 2, H * 0.35);
-  ctx.shadowBlur = 0;
-
-  ctx.fillStyle = '#FFD700';
-  ctx.font = `bold ${W * 0.07}px Arial`;
-  ctx.fillText(`Score: ${score}`, W / 2, H * 0.47);
-  ctx.fillStyle = '#fff';
-  ctx.font = `${W * 0.055}px Arial`;
-  ctx.fillText(`Best: ${hiScore}`, W / 2, H * 0.56);
-
-  const msgs = ['So close!', 'Jasper can do it!', 'Try again!', 'Almost!'];
-  ctx.font = `${W * 0.05}px Arial`;
-  ctx.fillStyle = '#FFD700';
-  ctx.fillText(msgs[Math.floor(Math.random() * msgs.length) % msgs.length], W / 2, H * 0.65);
-
-  ctx.fillStyle = '#aaa';
-  ctx.font = `${W * 0.045}px Arial`;
-  ctx.fillText('Tap to restart', W / 2, H * 0.75);
-}
-
-function checkCollision() {
-  const bx = bird.x, by = bird.y;
-  if (by + BIRD_R > H - 30 || by - BIRD_R < 0) return true;
-  for (const p of pipes) {
-    if (bx + BIRD_R - 8 > p.x && bx - BIRD_R + 8 < p.x + PIPE_W) {
-      if (by - BIRD_R + 8 < p.top || by + BIRD_R - 8 > p.top + PIPE_GAP) return true;
+function checkCollision(){
+  var r=getBirdR(),gap=getPipeGap(),bx=bird.x,by=bird.y;
+  if(by+r>H-FLOOR_H||by-r<0) return true;
+  for(var i=0;i<pipes.length;i++){
+    var p=pipes[i];
+    if(bx+r-8>p.x-6&&bx-r+8<p.x+PIPE_W+6){
+      if(by-r+8<p.top||by+r-8>p.top+gap) return true;
     }
   }
   return false;
 }
 
-let deadMsgIdx = 0;
-function loop() {
+function loop(){
   frame++;
-  ctx.clearRect(0, 0, W, H);
+  ctx.clearRect(0,0,W,H);
   drawBg();
 
-  if (state === 'playing') {
-    // Spawn pipes
-    if (frame % 90 === 0) spawnPipe();
-
-    // Update pipes
-    pipes.forEach(p => {
-      p.x -= PIPE_SPEED;
-      if (!p.scored && p.x + PIPE_W < bird.x) { p.scored = true; score++; }
-    });
-    pipes = pipes.filter(p => p.x + PIPE_W > -10);
-
-    // Update bird
-    bird.vy += GRAVITY;
-    bird.y += bird.vy;
-    bird.angle = Math.min(Math.max(bird.vy * 0.08, -0.5), 1.2);
-    if (bird.flapFrame > 0) bird.flapFrame--;
-
-    // Particles
-    particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life--; });
-    particles = particles.filter(p => p.life > 0);
-
-    if (checkCollision()) {
-      state = 'dead';
-      deadMsgIdx = Math.floor(Math.random() * 4);
-      if (score > hiScore) hiScore = score;
+  if(state==='playing'){
+    if(frame%140===0) spawnPipe();
+    for(var i=0;i<pipes.length;i++){
+      pipes[i].x-=PIPE_SPEED;
+      if(!pipes[i].scored&&pipes[i].x+PIPE_W<bird.x){pipes[i].scored=true;score++;}
     }
+    pipes=pipes.filter(function(p){return p.x+PIPE_W>-20;});
+    bird.vy+=GRAVITY; bird.y+=bird.vy;
+    bird.angle=Math.min(Math.max(bird.vy*0.08,-0.5),1.2);
+    if(bird.flapFrame>0) bird.flapFrame--;
+    for(var j=0;j<particles.length;j++){particles[j].x+=particles[j].vx;particles[j].y+=particles[j].vy;particles[j].life--;}
+    particles=particles.filter(function(p){return p.life>0;});
+    if(checkCollision()){state='dead';if(score>hiScore)hiScore=score;}
   }
 
-  // Draw pipes
-  pipes.forEach(p => drawPipe(p.x, p.top));
+  if(state==='playing'||state==='dead') for(var i=0;i<pipes.length;i++) drawPipe(pipes[i].x,pipes[i].top);
 
-  // Draw particles
-  drawParticles();
-
-  // Draw bird
-  if (state !== 'start') {
-    drawBird(bird.x, bird.y, bird.angle);
+  for(var k=0;k<particles.length;k++){
+    ctx.beginPath(); ctx.arc(particles[k].x,particles[k].y,3,0,Math.PI*2);
+    ctx.fillStyle='#fff'; ctx.globalAlpha=particles[k].life/20; ctx.fill(); ctx.globalAlpha=1;
   }
 
-  // Draw score
-  if (state === 'playing') drawScore();
-
-  // Overlay screens
-  if (state === 'start') drawStart();
-  if (state === 'dead') drawDead();
+  if(state==='playing'){
+    drawFloor();
+    var c=CHARS[selectedChar];
+    ctx.save(); ctx.translate(bird.x,bird.y); ctx.rotate(bird.angle);
+    ctx.beginPath(); ctx.ellipse(0,c.r+4,c.r*0.8,5,0,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,0.15)'; ctx.fill();
+    c.draw(ctx,c.r,bird.flapFrame);
+    ctx.restore();
+    drawScore();
+  }
+  if(state==='select') drawSelectScreen();
+  if(state==='dead'){drawFloor();drawDead();}
 
   requestAnimationFrame(loop);
 }
 
-init();
-loop();
+init(); loop();
 </script>
 </body>
 </html>
