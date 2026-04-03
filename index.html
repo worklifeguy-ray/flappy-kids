@@ -46,9 +46,9 @@ function drawJasper(ctx, r, flapFrame) {
   // Nose
   ctx.fillStyle='#e0907c';
   ctx.beginPath(); ctx.arc(0,r*0.08,r*0.07,0,Math.PI*2); ctx.fill();
-  // Big smile
+  // Smile - kept well inside face
   ctx.strokeStyle='#b05030'; ctx.lineWidth=r*0.07;
-  ctx.beginPath(); ctx.arc(0,r*0.05,r*0.28,0.2,Math.PI-0.2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0,-r*0.05,r*0.22,0.25,Math.PI-0.25); ctx.stroke();
   // Chubby cheeks
   ctx.fillStyle='rgba(255,120,100,0.25)';
   ctx.beginPath(); ctx.ellipse(-r*0.6,r*0.12,r*0.2,r*0.12,0,0,Math.PI*2); ctx.fill();
@@ -178,9 +178,9 @@ const CHARS = [
 var selectedChar=0, state='select';
 var bird, pipes, score, hiScore=0, frame=0, particles=[];
 
-const PIPE_W=55, PIPE_SPEED=1.5, GRAVITY=0.38, FLAP=-7.5;
+const PIPE_W=66, PIPE_SPEED=1.5, GRAVITY=0.38, FLAP=-7.5;
 
-function getPipeGap() { return H*0.28; }
+function getPipeGap() { return H*0.34; }
 function getBirdR() { return CHARS[selectedChar].r; }
 
 function init() {
@@ -282,9 +282,13 @@ function drawSelectScreen(){
     ctx.strokeStyle='rgba(200,200,200,0.8)';
     ctx.lineWidth=2;
     ctx.beginPath(); ctx.roundRect(cx,cardY,cardW,cardH,14); ctx.fill(); ctx.stroke();
-    ctx.save(); ctx.translate(cx+cardW/2,cardY+cardH*0.42);
-    ctx.beginPath(); ctx.arc(0,0,c.r,0,Math.PI*2); ctx.clip();
-    c.draw(ctx,c.r,0);
+    ctx.save();
+    ctx.translate(cx+cardW/2, cardY+cardH*0.42);
+    // Strict clip to face circle
+    ctx.beginPath(); ctx.arc(0, 0, c.r*0.97, 0, Math.PI*2);
+    ctx.fillStyle='#FDDBB4'; ctx.fill(); // fill background first
+    ctx.clip();
+    c.draw(ctx, c.r, 0);
     ctx.restore();
     ctx.fillStyle='#1a5c1a';
     ctx.font='bold '+Math.min(W*0.05,24)+'px Arial';
