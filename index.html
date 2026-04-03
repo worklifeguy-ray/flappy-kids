@@ -1,1 +1,336 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flappy Jasper</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #87CEEB; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: 'Arial', sans-serif; overflow: hidden; }
+  canvas { border: 3px solid #FFD700; border-radius: 8px; display: block; }
+  #ui { color: #FFD700; text-align: center; margin-bottom: 10px; font-size: 14px; }
+</style>
+</head>
+<body>
+<div id="ui">TAP / CLICK / SPACEBAR to flap</div>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
 
+// Responsive sizing
+const W = canvas.width = Math.min(400, window.innerWidth - 10);
+const H = canvas.height = Math.min(600, window.innerHeight - 60);
+ctx.fillStyle = '#87CEEB';
+ctx.fillRect(0, 0, W, H);
+
+// Load Jasper photo
+const jasperImg = new Image();
+jasperImg.src = 'data:image/jpeg;base64,'; // placeholder — will use drawn fallback
+
+// Game state
+let state = 'start'; // start, playing, dead
+let bird, pipes, score, hiScore, frame, particles;
+
+const PIPE_W = 52;
+const PIPE_GAP = H * 0.28;
+const PIPE_SPEED = 2.2;
+const GRAVITY = 0.38;
+const FLAP = -7.5;
+const BIRD_R = 28;
+
+function init() {
+  bird = { x: W * 0.25, y: H / 2, vy: 0, angle: 0, flapping: false, flapFrame: 0 };
+  pipes = [];
+  score = 0;
+  frame = 0;
+  particles = [];
+  if (!hiScore) hiScore = 0;
+}
+
+function spawnPipe() {
+  const minTop = H * 0.15;
+  const maxTop = H * 0.65;
+  const top = minTop + Math.random() * (maxTop - minTop);
+  pipes.push({ x: W, top, scored: false });
+}
+
+function flap() {
+  if (state === 'start') { state = 'playing'; init(); bird.vy = FLAP; return; }
+  if (state === 'dead') { state = 'start'; return; }
+  bird.vy = FLAP;
+  bird.flapFrame = 8;
+  // particles
+  for (let i = 0; i < 6; i++) {
+    particles.push({ x: bird.x, y: bird.y + BIRD_R, vx: (Math.random()-0.5)*3, vy: Math.random()*2+1, life: 20, color: '#FFD700' });
+  }
+}
+
+document.addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); flap(); } });
+canvas.addEventListener('click', flap);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); flap(); }, { passive: false });
+
+// Draw sky gradient
+function drawBg() {
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#87CEEB');
+  grad.addColorStop(0.7, '#E0F4FF');
+  grad.addColorStop(1, '#90EE90');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Ground
+  ctx.fillStyle = '#5D8A3C';
+  ctx.fillRect(0, H - 30, W, 30);
+  ctx.fillStyle = '#4a7030';
+  ctx.fillRect(0, H - 30, W, 6);
+
+  // Clouds
+  ctx.fillStyle = 'rgba(255,255,255,0.8)';
+  drawCloud(W * 0.2 - (frame * 0.3) % W, H * 0.12, 40);
+  drawCloud(W * 0.6 - (frame * 0.2) % W, H * 0.08, 30);
+  drawCloud(W * 0.85 - (frame * 0.25) % W, H * 0.2, 35);
+}
+
+function drawCloud(x, y, r) {
+  ctx.beginPath();
+  ctx.arc(x, y, r, 0, Math.PI * 2);
+  ctx.arc(x + r * 0.8, y - r * 0.3, r * 0.7, 0, Math.PI * 2);
+  ctx.arc(x + r * 1.5, y, r * 0.8, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawPipe(x, top) {
+  const bot = top + PIPE_GAP;
+  const capH = 20, capW = PIPE_W + 10;
+
+  // Top pipe
+  const g1 = ctx.createLinearGradient(x, 0, x + PIPE_W, 0);
+  g1.addColorStop(0, '#2ecc40'); g1.addColorStop(0.5, '#27ae60'); g1.addColorStop(1, '#1a7a30');
+  ctx.fillStyle = g1;
+  ctx.fillRect(x, 0, PIPE_W, top);
+  // cap
+  ctx.fillStyle = '#27ae60';
+  ctx.fillRect(x - 5, top - capH, capW, capH);
+  ctx.strokeStyle = '#1a5c20'; ctx.lineWidth = 2;
+  ctx.strokeRect(x - 5, top - capH, capW, capH);
+
+  // Bottom pipe
+  const g2 = ctx.createLinearGradient(x, 0, x + PIPE_W, 0);
+  g2.addColorStop(0, '#2ecc40'); g2.addColorStop(0.5, '#27ae60'); g2.addColorStop(1, '#1a7a30');
+  ctx.fillStyle = g2;
+  ctx.fillRect(x, bot, PIPE_W, H - bot);
+  ctx.fillStyle = '#27ae60';
+  ctx.fillRect(x - 5, bot, capW, capH);
+  ctx.strokeStyle = '#1a5c20'; ctx.lineWidth = 2;
+  ctx.strokeRect(x - 5, bot, capW, capH);
+}
+
+// Draw Jasper as circle with photo — fallback to drawn character
+const img = new Image();
+let imgLoaded = false;
+// We'll embed a tiny canvas drawing since no real URL available
+
+function drawBird(x, y, angle) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+
+  // Shadow
+  ctx.beginPath();
+  ctx.ellipse(0, BIRD_R + 4, BIRD_R * 0.8, 6, 0, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(0,0,0,0.15)';
+  ctx.fill();
+
+  // Body circle (yellow like Jasper's shirt)
+  ctx.beginPath();
+  ctx.arc(0, 0, BIRD_R, 0, Math.PI * 2);
+  ctx.fillStyle = '#FFD700';
+  ctx.fill();
+  ctx.strokeStyle = '#e6b800';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Face
+  // Eyes
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(-8, -6, 8, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(8, -6, 8, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#222';
+  ctx.beginPath(); ctx.arc(-7, -5, 4, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(9, -5, 4, 0, Math.PI * 2); ctx.fill();
+  // Shine
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(-5, -7, 2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(11, -7, 2, 0, Math.PI * 2); ctx.fill();
+
+  // Smile
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(0, 2, 10, 0.2, Math.PI - 0.2);
+  ctx.stroke();
+
+  // Hair (black, bowl cut like Jasper)
+  ctx.fillStyle = '#222';
+  ctx.beginPath();
+  ctx.arc(0, -BIRD_R * 0.2, BIRD_R * 0.85, Math.PI, Math.PI * 2);
+  ctx.fill();
+
+  // Shirt stripe (Minion-style)
+  ctx.fillStyle = '#333';
+  ctx.fillRect(-BIRD_R + 5, 10, (BIRD_R - 5) * 2, 5);
+
+  // Peace sign hand
+  if (bird.flapFrame > 0) {
+    ctx.strokeStyle = '#FFB347';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(BIRD_R, 0); ctx.lineTo(BIRD_R + 14, -10); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(BIRD_R, 0); ctx.lineTo(BIRD_R + 14, 5); ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function drawParticles() {
+  particles.forEach(p => {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = p.life / 20;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  });
+}
+
+function drawScore() {
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 4;
+  ctx.font = `bold ${W * 0.12}px Arial`;
+  ctx.textAlign = 'center';
+  ctx.strokeText(score, W / 2, H * 0.15);
+  ctx.fillText(score, W / 2, H * 0.15);
+}
+
+function drawStart() {
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = '#FFD700';
+  ctx.font = `bold ${W * 0.11}px Arial`;
+  ctx.textAlign = 'center';
+  ctx.shadowColor = '#e6b800';
+  ctx.shadowBlur = 15;
+  ctx.fillText('FLAPPY', W / 2, H * 0.35);
+  ctx.fillText('JASPER', W / 2, H * 0.47);
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = '#fff';
+  ctx.font = `${W * 0.055}px Arial`;
+  ctx.fillText('Tap to Start!', W / 2, H * 0.62);
+
+  // draw bird preview
+  drawBird(W / 2, H * 0.25, 0);
+}
+
+function drawDead() {
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = '#FF4444';
+  ctx.font = `bold ${W * 0.1}px Arial`;
+  ctx.textAlign = 'center';
+  ctx.shadowColor = '#ff0000';
+  ctx.shadowBlur = 10;
+  ctx.fillText('GAME OVER', W / 2, H * 0.35);
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = '#FFD700';
+  ctx.font = `bold ${W * 0.07}px Arial`;
+  ctx.fillText(`Score: ${score}`, W / 2, H * 0.47);
+  ctx.fillStyle = '#fff';
+  ctx.font = `${W * 0.055}px Arial`;
+  ctx.fillText(`Best: ${hiScore}`, W / 2, H * 0.56);
+
+  const msgs = ['So close!', 'Jasper can do it!', 'Try again!', 'Almost!'];
+  ctx.font = `${W * 0.05}px Arial`;
+  ctx.fillStyle = '#FFD700';
+  ctx.fillText(msgs[Math.floor(Math.random() * msgs.length) % msgs.length], W / 2, H * 0.65);
+
+  ctx.fillStyle = '#aaa';
+  ctx.font = `${W * 0.045}px Arial`;
+  ctx.fillText('Tap to restart', W / 2, H * 0.75);
+}
+
+function checkCollision() {
+  const bx = bird.x, by = bird.y;
+  if (by + BIRD_R > H - 30 || by - BIRD_R < 0) return true;
+  for (const p of pipes) {
+    if (bx + BIRD_R - 8 > p.x && bx - BIRD_R + 8 < p.x + PIPE_W) {
+      if (by - BIRD_R + 8 < p.top || by + BIRD_R - 8 > p.top + PIPE_GAP) return true;
+    }
+  }
+  return false;
+}
+
+let deadMsgIdx = 0;
+function loop() {
+  frame++;
+  ctx.clearRect(0, 0, W, H);
+  drawBg();
+
+  if (state === 'playing') {
+    // Spawn pipes
+    if (frame % 90 === 0) spawnPipe();
+
+    // Update pipes
+    pipes.forEach(p => {
+      p.x -= PIPE_SPEED;
+      if (!p.scored && p.x + PIPE_W < bird.x) { p.scored = true; score++; }
+    });
+    pipes = pipes.filter(p => p.x + PIPE_W > -10);
+
+    // Update bird
+    bird.vy += GRAVITY;
+    bird.y += bird.vy;
+    bird.angle = Math.min(Math.max(bird.vy * 0.08, -0.5), 1.2);
+    if (bird.flapFrame > 0) bird.flapFrame--;
+
+    // Particles
+    particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.life--; });
+    particles = particles.filter(p => p.life > 0);
+
+    if (checkCollision()) {
+      state = 'dead';
+      deadMsgIdx = Math.floor(Math.random() * 4);
+      if (score > hiScore) hiScore = score;
+    }
+  }
+
+  // Draw pipes
+  pipes.forEach(p => drawPipe(p.x, p.top));
+
+  // Draw particles
+  drawParticles();
+
+  // Draw bird
+  if (state !== 'start') {
+    drawBird(bird.x, bird.y, bird.angle);
+  }
+
+  // Draw score
+  if (state === 'playing') drawScore();
+
+  // Overlay screens
+  if (state === 'start') drawStart();
+  if (state === 'dead') drawDead();
+
+  requestAnimationFrame(loop);
+}
+
+init();
+loop();
+</script>
+</body>
+</html>
